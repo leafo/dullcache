@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync/atomic"
 )
 
 type errorHandler func(http.ResponseWriter, *http.Request) error
@@ -18,6 +19,15 @@ var cacheBase = "cache"
 var fileCache *FileCache
 
 var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
+
+var serverStats struct {
+	bytesFetched int64
+	bytesWritten int64
+	fastHits     int64
+	checkedHits  int64
+	passes       int64
+	stores       int64
+}
 
 func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := fn(w, r); err != nil {
@@ -131,8 +141,10 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 		targetWriter = io.MultiWriter(file, targetWriter)
 		log.Print("Serve and store: " + subPath)
+		atomic.AddInt64(&serverStats.stores, 1)
 	} else {
 		log.Print("Pass through (from store): " + subPath)
+		atomic.AddInt64(&serverStats.passes, 1)
 	}
 
 	passHeaders(w, remoteRes.Header)
@@ -179,6 +191,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 	availableHeaders := fileCache.PathAvailable(subPath)
 	if availableHeaders != nil {
 		log.Print("From cache quick: " + subPath)
+		atomic.AddInt64(&serverStats.fastHits, 1)
 		return serveCache(w, r, availableHeaders)
 	}
 
@@ -200,12 +213,14 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 		if int64(contentLen) == size {
 			fileCache.MarkPathAvailable(subPath, headers)
 			log.Print("From cache checked: " + subPath)
+			atomic.AddInt64(&serverStats.checkedHits, 1)
 			return serveCache(w, r, headers)
 		}
 	}
 
 	if fileCache.PathBusy(subPath) {
 		log.Print("Pass through" + subPath)
+		atomic.AddInt64(&serverStats.passes, 1)
 		return passThrough(w, r)
 	}
 
@@ -213,7 +228,12 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func statHandler(w http.ResponseWriter, r *http.Request) error {
-	fmt.Fprintln(w, "Cached files: ", fileCache.CountAvailablePaths(), "\n")
+	fmt.Fprintln(w, "Available paths: ", fileCache.CountAvailablePaths())
+	fmt.Fprintln(w, "Busy paths: ", fileCache.CountBusyPaths())
+	fmt.Fprintln(w, "Fast hits: ", serverStats.fastHits)
+	fmt.Fprintln(w, "Checked hits: ", serverStats.checkedHits)
+	fmt.Fprintln(w, "Passes: ", serverStats.passes)
+	fmt.Fprintln(w, "Stores: ", serverStats.stores)
 	return nil
 }
 

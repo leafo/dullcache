@@ -30,7 +30,9 @@ func (cache *FileCache) CountAvailablePaths() int {
 }
 
 func (cache *FileCache) CountBusyPaths() int {
-	return 0
+	cache.busyMutex.RLock()
+	defer cache.busyMutex.RUnlock()
+	return len(cache.busyPaths)
 }
 
 func (cache *FileCache) CacheFilePath(subPath string) string {
