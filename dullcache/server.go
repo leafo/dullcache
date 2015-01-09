@@ -37,12 +37,16 @@ func openRemote(r *http.Request) (*http.Response, error) {
 	return http.Get(fetchUrl)
 }
 
-func filterHeaders(headers *http.Header) {
-	for k, _ := range *headers {
-		if headersToFilter[k] {
-			headers.Del(k)
+func filterHeaders(headers http.Header) http.Header {
+	filtered := http.Header{}
+
+	for k, v := range headers {
+		if !headersToFilter[k] {
+			filtered[k] = v
 		}
 	}
+
+	return filtered
 }
 
 func headPath(subPath string) (*http.Header, error) {
@@ -59,14 +63,8 @@ func headPath(subPath string) (*http.Header, error) {
 		return nil, fmt.Errorf("failed to head file")
 	}
 
-	headerCopy := http.Header{}
-	for k, v := range res.Header {
-		headerCopy[k] = v
-	}
-
-	filterHeaders(&headerCopy)
-
-	return &headerCopy, err
+	filtered := filterHeaders(res.Header)
+	return &filtered, err
 }
 
 func passHeaders(w http.ResponseWriter, headers http.Header) {
