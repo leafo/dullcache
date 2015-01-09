@@ -23,10 +23,14 @@ func NewFileCache(basePath string) *FileCache {
 	}
 }
 
-func (cache *FileCache) CountPathsCached() int {
+func (cache *FileCache) CountAvailablePaths() int {
 	cache.availableMutex.RLock()
 	defer cache.availableMutex.RUnlock()
 	return len(cache.availablePaths)
+}
+
+func (cache *FileCache) CountBusyPaths() int {
+	return 0
 }
 
 func (cache *FileCache) CacheFilePath(subPath string) string {
@@ -63,4 +67,22 @@ func (cache *FileCache) MarkPathAvailable(path string, headers *http.Header) {
 	cache.availableMutex.Lock()
 	defer cache.availableMutex.Unlock()
 	cache.availablePaths[path] = headers
+}
+
+func (cache *FileCache) MarkPathBusy(path string) bool {
+	cache.busyMutex.Lock()
+	defer cache.busyMutex.Unlock()
+
+	if cache.busyPaths[path] {
+		return false
+	}
+
+	cache.busyPaths[path] = true
+	return true
+}
+
+func (cache *FileCache) MarkPathFree(path string) {
+	cache.busyMutex.Lock()
+	defer cache.busyMutex.Unlock()
+	delete(cache.busyPaths, path)
 }

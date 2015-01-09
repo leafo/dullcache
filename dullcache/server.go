@@ -117,27 +117,36 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	cacheTarget := cacheBase + r.URL.Path
-	err = os.MkdirAll(path.Dir(cacheTarget), 0755)
+	var targetWriter io.Writer = w
 
-	if err != nil {
-		return err
+	if fileCache.MarkPathBusy(r.URL.Path) {
+		defer fileCache.MarkPathBusy(r.URL.Path)
+
+		// it's now busy because of us
+		cacheTarget := fileCache.CacheFilePath(r.URL.Path)
+		err = os.MkdirAll(path.Dir(cacheTarget), 0755)
+
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Create(cacheTarget)
+
+		if err != nil {
+			return err
+		}
+
+		defer file.Close()
+
+		targetWriter = io.MultiWriter(file, targetWriter)
+		log.Print("Serve and store: " + r.URL.Path)
+	} else {
+		log.Print("Pass through (from store): " + r.URL.Path)
 	}
-
-	file, err := os.Create(cacheTarget)
-
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-	fmt.Println("Writing cache", cacheTarget)
-
-	multi := io.MultiWriter(file, w)
 
 	passHeaders(w, remoteRes.Header)
 
-	_, err = io.Copy(multi, remoteRes.Body)
+	_, err = io.Copy(targetWriter, remoteRes.Body)
 
 	if err != nil {
 		return err
@@ -196,14 +205,16 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// if busy
-	log.Print("Serve and store: " + subPath)
+	if fileCache.PathBusy(subPath) {
+		log.Print("Pass through" + subPath)
+		return passThrough(w, r)
+	}
+
 	return serveAndStore(w, r)
-	// return passThrough(w, r)
 }
 
 func statHandler(w http.ResponseWriter, r *http.Request) error {
-	fmt.Fprintln(w, "Cached files: ", fileCache.CountPathsCached(), "\n")
+	fmt.Fprintln(w, "Cached files: ", fileCache.CountAvailablePaths(), "\n")
 	return nil
 }
 
