@@ -22,7 +22,10 @@ func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func openRemote(r *http.Request) (*http.Response, error) {
 	reqUrl := *r.URL
-	fetchUrl := baseUrl + reqUrl.Path + "?" + reqUrl.RawQuery
+	fetchUrl := baseUrl + reqUrl.Path
+	if reqUrl.RawQuery != "" {
+		fetchUrl += "?" + reqUrl.RawQuery
+	}
 
 	fmt.Println("Fetching", fetchUrl)
 	return http.Get(fetchUrl)
@@ -66,6 +69,12 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	defer remoteRes.Body.Close()
 
+	if remoteRes.StatusCode != 200 {
+		passHeaders(w, remoteRes)
+		_, err = io.Copy(w, remoteRes.Body)
+		return err
+	}
+
 	cacheTarget := cacheBase + r.URL.Path
 	err = os.MkdirAll(path.Dir(cacheTarget), 0755)
 
@@ -80,6 +89,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	defer file.Close()
+	fmt.Println("Writing cache", cacheTarget)
 
 	multi := io.MultiWriter(file, w)
 
