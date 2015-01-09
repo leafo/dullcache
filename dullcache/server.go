@@ -123,9 +123,11 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	var targetWriter io.Writer = w
 
 	writingCache := fileCache.MarkPathBusy(subPath)
+	needsPurge := false
 
 	if writingCache {
 		defer fileCache.MarkPathFree(subPath)
+		needsPurge = fileCache.PathNeedsPurge(subPath)
 
 		// it's now busy because of us
 		cacheTarget := fileCache.CacheFilePath(subPath)
@@ -168,6 +170,9 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	if writingCache {
 		fileCache.MarkPathAvailable(subPath, filterHeaders(remoteRes.Header))
 		log.Print("Cache stored" + subPath)
+		if needsPurge {
+			fileCache.ReleasePathPurge(subPath)
+		}
 	}
 
 	return nil
@@ -191,40 +196,50 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 	return err
 }
 
+func purgeHandler(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
 func cacheHandler(w http.ResponseWriter, r *http.Request) error {
+	if r.Method == "DELETE" {
+		return purgeHandler(w, r)
+	}
+
 	if r.Method != "GET" {
 		return fmt.Errorf("only GET allowed")
 	}
 
 	subPath := r.URL.Path
 
-	availableHeaders := fileCache.PathAvailable(subPath)
-	if availableHeaders != nil {
-		log.Print("From cache quick: " + subPath)
-		atomic.AddInt64(&serverStats.fastHits, 1)
-		return serveCache(w, r, availableHeaders)
-	}
+	if !fileCache.PathNeedsPurge(subPath) {
+		availableHeaders := fileCache.PathAvailable(subPath)
+		if availableHeaders != nil {
+			log.Print("From cache quick: " + subPath)
+			atomic.AddInt64(&serverStats.fastHits, 1)
+			return serveCache(w, r, availableHeaders)
+		}
 
-	size, err := fileCache.PathMaybeAvailable(subPath)
-
-	if err != nil {
-		return err
-	}
-
-	if size > 0 {
-		headers, err := headPath(subPath)
-		contentLenStr := headers.Get("Content-Length")
-		contentLen, err := strconv.Atoi(contentLenStr)
+		size, err := fileCache.PathMaybeAvailable(subPath)
 
 		if err != nil {
 			return err
 		}
 
-		if int64(contentLen) == size {
-			fileCache.MarkPathAvailable(subPath, headers)
-			log.Print("From cache checked: " + subPath)
-			atomic.AddInt64(&serverStats.checkedHits, 1)
-			return serveCache(w, r, headers)
+		if size > 0 {
+			headers, err := headPath(subPath)
+			contentLenStr := headers.Get("Content-Length")
+			contentLen, err := strconv.Atoi(contentLenStr)
+
+			if err != nil {
+				return err
+			}
+
+			if int64(contentLen) == size {
+				fileCache.MarkPathAvailable(subPath, headers)
+				log.Print("From cache checked: " + subPath)
+				atomic.AddInt64(&serverStats.checkedHits, 1)
+				return serveCache(w, r, headers)
+			}
 		}
 	}
 

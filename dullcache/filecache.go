@@ -13,6 +13,8 @@ type FileCache struct {
 	busyPaths      map[string]bool
 	availableMutex sync.RWMutex
 	availablePaths map[string]http.Header
+	purgedMutex    sync.RWMutex
+	purgedPaths    map[string]bool
 }
 
 func NewFileCache(basePath string) *FileCache {
@@ -20,6 +22,7 @@ func NewFileCache(basePath string) *FileCache {
 		basePath:       basePath,
 		busyPaths:      make(map[string]bool),
 		availablePaths: make(map[string]http.Header),
+		purgedPaths:    make(map[string]bool),
 	}
 }
 
@@ -87,4 +90,33 @@ func (cache *FileCache) MarkPathFree(path string) {
 	cache.busyMutex.Lock()
 	defer cache.busyMutex.Unlock()
 	delete(cache.busyPaths, path)
+}
+
+func (cache *FileCache) PathNeedsPurge(path string) bool {
+	cache.purgedMutex.RLock()
+	defer cache.purgedMutex.RUnlock()
+	return cache.purgedPaths[path]
+}
+
+func (cache *FileCache) ReleasePathPurge(path string) bool {
+	cache.purgedMutex.RLock()
+	needsPurge := cache.purgedPaths[path]
+	cache.purgedMutex.RUnlock()
+
+	if needsPurge {
+		cache.purgedMutex.Lock()
+		defer cache.purgedMutex.Unlock()
+		if cache.purgedPaths[path] {
+			delete(cache.purgedPaths, path)
+			return true
+		}
+	}
+
+	return false
+}
+
+func (cache *FileCache) MarkPathNeedsPurge(path string) {
+	cache.purgedMutex.Lock()
+	defer cache.purgedMutex.Unlock()
+	cache.purgedPaths[path] = true
 }
