@@ -67,7 +67,7 @@ func headPath(subPath string) (http.Header, error) {
 }
 
 func passHeaders(w http.ResponseWriter, headers http.Header) {
-	for k, v := range headers {
+	for k, v := range filterHeaders(headers) {
 		w.Header()[k] = v
 	}
 }
@@ -96,6 +96,7 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveAndStore(w http.ResponseWriter, r *http.Request) error {
+	subPath := r.URL.Path
 	remoteRes, err := openRemote(r)
 
 	if err != nil {
@@ -116,11 +117,13 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	var targetWriter io.Writer = w
 
-	if fileCache.MarkPathBusy(r.URL.Path) {
-		defer fileCache.MarkPathBusy(r.URL.Path)
+	writingCache := fileCache.MarkPathBusy(subPath)
+
+	if writingCache {
+		defer fileCache.MarkPathBusy(subPath)
 
 		// it's now busy because of us
-		cacheTarget := fileCache.CacheFilePath(r.URL.Path)
+		cacheTarget := fileCache.CacheFilePath(subPath)
 		err = os.MkdirAll(path.Dir(cacheTarget), 0755)
 
 		if err != nil {
@@ -136,9 +139,9 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 		defer file.Close()
 
 		targetWriter = io.MultiWriter(file, targetWriter)
-		log.Print("Serve and store: " + r.URL.Path)
+		log.Print("Serve and store: " + subPath)
 	} else {
-		log.Print("Pass through (from store): " + r.URL.Path)
+		log.Print("Pass through (from store): " + subPath)
 	}
 
 	passHeaders(w, remoteRes.Header)
@@ -146,7 +149,13 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	_, err = io.Copy(targetWriter, remoteRes.Body)
 
 	if err != nil {
+		log.Print("Aborted writing cache: " + subPath)
 		return err
+	}
+
+	if writingCache {
+		fileCache.MarkPathAvailable(subPath, filterHeaders(remoteRes.Header))
+		log.Print("Cache stored" + subPath)
 	}
 
 	return nil
