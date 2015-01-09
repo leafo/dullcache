@@ -81,17 +81,8 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 
 	defer remoteRes.Body.Close()
 
-	fmt.Println("Remote responded", remoteRes.Status)
-
 	passHeaders(w, remoteRes.Header)
-	copied, err := io.Copy(w, remoteRes.Body)
-
-	if err != nil {
-		fmt.Println("Copied bytes with error:", copied, err.Error())
-	} else {
-		fmt.Println("Copied bytes:", copied)
-	}
-
+	io.Copy(w, remoteRes.Body)
 	return nil
 }
 
@@ -150,7 +141,9 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	if err != nil {
 		log.Print("Aborted writing cache: " + subPath)
-		return err
+		// can't render normal error handler because we already set headers, so do
+		// nothing
+		return nil
 	}
 
 	if writingCache {
