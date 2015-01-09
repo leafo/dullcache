@@ -12,14 +12,14 @@ type FileCache struct {
 	busyMutex      sync.RWMutex
 	busyPaths      map[string]bool
 	availableMutex sync.RWMutex
-	availablePaths map[string]*http.Header
+	availablePaths map[string]http.Header
 }
 
 func NewFileCache(basePath string) *FileCache {
 	return &FileCache{
 		basePath:       basePath,
 		busyPaths:      make(map[string]bool),
-		availablePaths: make(map[string]*http.Header),
+		availablePaths: make(map[string]http.Header),
 	}
 }
 
@@ -37,7 +37,7 @@ func (cache *FileCache) CacheFilePath(subPath string) string {
 	return path.Join(cache.basePath, subPath)
 }
 
-func (cache *FileCache) PathAvailable(path string) *http.Header {
+func (cache *FileCache) PathAvailable(path string) http.Header {
 	cache.availableMutex.RLock()
 	defer cache.availableMutex.RUnlock()
 	return cache.availablePaths[path]
@@ -63,7 +63,7 @@ func (cache *FileCache) PathBusy(path string) bool {
 	return cache.busyPaths[path]
 }
 
-func (cache *FileCache) MarkPathAvailable(path string, headers *http.Header) {
+func (cache *FileCache) MarkPathAvailable(path string, headers http.Header) {
 	cache.availableMutex.Lock()
 	defer cache.availableMutex.Unlock()
 	cache.availablePaths[path] = headers

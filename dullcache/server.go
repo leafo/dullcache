@@ -49,7 +49,7 @@ func filterHeaders(headers http.Header) http.Header {
 	return filtered
 }
 
-func headPath(subPath string) (*http.Header, error) {
+func headPath(subPath string) (http.Header, error) {
 	log.Print("Remote HEAD: " + subPath)
 
 	res, err := http.Head(baseUrl + subPath)
@@ -63,8 +63,7 @@ func headPath(subPath string) (*http.Header, error) {
 		return nil, fmt.Errorf("failed to head file")
 	}
 
-	filtered := filterHeaders(res.Header)
-	return &filtered, err
+	return filterHeaders(res.Header), err
 }
 
 func passHeaders(w http.ResponseWriter, headers http.Header) {
@@ -153,7 +152,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders *http.Header) error {
+func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header) error {
 	file, err := os.Open(fileCache.CacheFilePath(r.URL.Path))
 
 	if err != nil {
@@ -162,7 +161,7 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders *http.Header
 
 	defer file.Close()
 
-	passHeaders(w, *fileHeaders)
+	passHeaders(w, fileHeaders)
 
 	_, err = io.Copy(w, file)
 	return err
