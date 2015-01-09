@@ -22,7 +22,7 @@ var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
 
 var serverStats struct {
 	bytesFetched int64
-	bytesWritten int64
+	bytesSent    int64
 	fastHits     int64
 	checkedHits  int64
 	passes       int64
@@ -92,7 +92,11 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 	defer remoteRes.Body.Close()
 
 	passHeaders(w, remoteRes.Header)
-	io.Copy(w, remoteRes.Body)
+	copied, err := io.Copy(w, remoteRes.Body)
+
+	atomic.AddInt64(&serverStats.bytesFetched, copied)
+	atomic.AddInt64(&serverStats.bytesSent, copied)
+
 	return nil
 }
 
@@ -149,7 +153,10 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	passHeaders(w, remoteRes.Header)
 
-	_, err = io.Copy(targetWriter, remoteRes.Body)
+	copied, err := io.Copy(targetWriter, remoteRes.Body)
+
+	atomic.AddInt64(&serverStats.bytesFetched, copied)
+	atomic.AddInt64(&serverStats.bytesSent, copied)
 
 	if err != nil {
 		log.Print("Aborted writing cache: " + subPath)
@@ -177,7 +184,10 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 	passHeaders(w, fileHeaders)
 
-	_, err = io.Copy(w, file)
+	copied, err := io.Copy(w, file)
+
+	atomic.AddInt64(&serverStats.bytesSent, copied)
+
 	return err
 }
 
