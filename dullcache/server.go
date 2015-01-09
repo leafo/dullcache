@@ -244,6 +244,9 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w, "Checked hits: ", serverStats.checkedHits)
 	fmt.Fprintln(w, "Passes: ", serverStats.passes)
 	fmt.Fprintln(w, "Stores: ", serverStats.stores)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Bytes fetched: ", serverStats.bytesFetched)
+	fmt.Fprintln(w, "Bytes sent: ", serverStats.bytesSent)
 	return nil
 }
 
