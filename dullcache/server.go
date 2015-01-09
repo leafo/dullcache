@@ -120,7 +120,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	writingCache := fileCache.MarkPathBusy(subPath)
 
 	if writingCache {
-		defer fileCache.MarkPathBusy(subPath)
+		defer fileCache.MarkPathFree(subPath)
 
 		// it's now busy because of us
 		cacheTarget := fileCache.CacheFilePath(subPath)
