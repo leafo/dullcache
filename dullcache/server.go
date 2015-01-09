@@ -197,6 +197,8 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 }
 
 func purgeHandler(w http.ResponseWriter, r *http.Request) error {
+	// TODO: verify host
+	fileCache.MarkPathNeedsPurge(r.URL.Path)
 	return nil
 }
 
@@ -255,6 +257,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 func statHandler(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w, "Available paths: ", fileCache.CountAvailablePaths())
 	fmt.Fprintln(w, "Busy paths: ", fileCache.CountBusyPaths())
+	fmt.Fprintln(w, "Purged paths: ", fileCache.CountPurgedPaths())
 	fmt.Fprintln(w, "Fast hits: ", serverStats.fastHits)
 	fmt.Fprintln(w, "Checked hits: ", serverStats.checkedHits)
 	fmt.Fprintln(w, "Passes: ", serverStats.passes)

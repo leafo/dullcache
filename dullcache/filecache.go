@@ -38,6 +38,12 @@ func (cache *FileCache) CountBusyPaths() int {
 	return len(cache.busyPaths)
 }
 
+func (cache *FileCache) CountPurgedPaths() int {
+	cache.purgedMutex.RLock()
+	defer cache.purgedMutex.RUnlock()
+	return len(cache.purgedPaths)
+}
+
 func (cache *FileCache) CacheFilePath(subPath string) string {
 	return path.Join(cache.basePath, subPath)
 }
