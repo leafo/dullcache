@@ -8,19 +8,19 @@ import (
 
 const DefaultConfigFname = "dullcache.json"
 
-type config struct {
+type Config struct {
 	Address        string
 	AdminAddresses []string
 	CacheDir       string
 }
 
-var defaultConfig = config{
+var defaultConfig = Config{
 	Address:        ":9192",
 	CacheDir:       "cache",
-	AdminAddresses: []string{"127.0.0.1"},
+	AdminAddresses: []string{"127.0.0.1", "[::1]"},
 }
 
-func LoadConfig(fname string) *config {
+func LoadConfig(fname string) *Config {
 	c := defaultConfig
 	if fname == "" {
 		return &c

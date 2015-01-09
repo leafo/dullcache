@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -17,6 +18,7 @@ var baseUrl = "http://commondatastorage.googleapis.com"
 var cacheBase = "cache"
 
 var fileCache *FileCache
+var config *Config
 
 var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
 
@@ -33,6 +35,22 @@ func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := fn(w, r); err != nil {
 		http.Error(w, err.Error(), 500)
 	}
+}
+
+func authAdminRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+
+	if err != nil {
+		return false
+	}
+
+	for _, allowed := range config.AdminAddresses {
+		if allowed == host {
+			return true
+		}
+	}
+
+	return false
 }
 
 func openRemote(r *http.Request) (*http.Response, error) {
@@ -197,7 +215,9 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 }
 
 func purgeHandler(w http.ResponseWriter, r *http.Request) error {
-	// TODO: verify host
+	if !authAdminRequest(r) {
+		return fmt.Errorf("unauthorized")
+	}
 	fileCache.MarkPathNeedsPurge(r.URL.Path)
 	return nil
 }
@@ -268,12 +288,13 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func StartDullCache(listenTo string) error {
+func StartDullCache(_config *Config) error {
 	fileCache = NewFileCache("cache")
+	config = _config
 
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
-	log.Print("Listening on: " + listenTo)
-	return http.ListenAndServe(listenTo, nil)
+	log.Print("Listening on: " + config.Address)
+	return http.ListenAndServe(config.Address, nil)
 }

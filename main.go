@@ -25,5 +25,5 @@ func init() {
 func main() {
 	flag.Parse()
 	config := dullcache.LoadConfig(configFname)
-	dullcache.StartDullCache(config.Address)
+	dullcache.StartDullCache(config)
 }
