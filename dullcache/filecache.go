@@ -29,7 +29,7 @@ func (cache *FileCache) CountPathsCached() int {
 	return len(cache.availablePaths)
 }
 
-func (cache *FileCache) fullCachePath(subPath string) string {
+func (cache *FileCache) CacheFilePath(subPath string) string {
 	return path.Join(cache.basePath, subPath)
 }
 
@@ -40,7 +40,7 @@ func (cache *FileCache) PathAvailable(path string) *http.Header {
 }
 
 func (cache *FileCache) PathMaybeAvailable(path string) (int64, error) {
-	info, err := os.Stat(cache.fullCachePath(path))
+	info, err := os.Stat(cache.CacheFilePath(path))
 
 	if os.IsNotExist(err) {
 		return 0, nil

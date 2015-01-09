@@ -28,11 +28,12 @@ func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func openRemote(r *http.Request) (*http.Response, error) {
 	reqUrl := *r.URL
 	fetchUrl := baseUrl + reqUrl.Path
+
 	if reqUrl.RawQuery != "" {
 		fetchUrl += "?" + reqUrl.RawQuery
 	}
 
-	fmt.Println("Fetching", fetchUrl)
+	log.Print("Remote GET: " + fetchUrl)
 	return http.Get(fetchUrl)
 }
 
@@ -45,7 +46,7 @@ func filterHeaders(headers *http.Header) {
 }
 
 func headPath(subPath string) (*http.Header, error) {
-	log.Print("HEAD " + subPath)
+	log.Print("Remote HEAD: " + subPath)
 
 	res, err := http.Head(baseUrl + subPath)
 	if err != nil {
@@ -68,8 +69,8 @@ func headPath(subPath string) (*http.Header, error) {
 	return &headerCopy, err
 }
 
-func passHeaders(w http.ResponseWriter, remoteRes *http.Response) {
-	for k, v := range remoteRes.Header {
+func passHeaders(w http.ResponseWriter, headers http.Header) {
+	for k, v := range headers {
 		w.Header()[k] = v
 	}
 }
@@ -85,7 +86,7 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 
 	fmt.Println("Remote responded", remoteRes.Status)
 
-	passHeaders(w, remoteRes)
+	passHeaders(w, remoteRes.Header)
 	copied, err := io.Copy(w, remoteRes.Body)
 
 	if err != nil {
@@ -107,7 +108,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	defer remoteRes.Body.Close()
 
 	if remoteRes.StatusCode != 200 {
-		passHeaders(w, remoteRes)
+		passHeaders(w, remoteRes.Header)
 		_, err = io.Copy(w, remoteRes.Body)
 		return err
 	}
@@ -134,7 +135,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	multi := io.MultiWriter(file, w)
 
-	passHeaders(w, remoteRes)
+	passHeaders(w, remoteRes.Header)
 
 	_, err = io.Copy(multi, remoteRes.Body)
 
@@ -146,8 +147,18 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders *http.Header) error {
-	w.Write([]byte("Serve from cache...\n"))
-	return nil
+	file, err := os.Open(fileCache.CacheFilePath(r.URL.Path))
+
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	passHeaders(w, *fileHeaders)
+
+	_, err = io.Copy(w, file)
+	return err
 }
 
 func cacheHandler(w http.ResponseWriter, r *http.Request) error {
@@ -159,7 +170,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 
 	availableHeaders := fileCache.PathAvailable(subPath)
 	if availableHeaders != nil {
-		log.Print("Path is available from memory: " + subPath)
+		log.Print("From cache quick: " + subPath)
 		return serveCache(w, r, availableHeaders)
 	}
 
@@ -179,14 +190,15 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if int64(contentLen) == size {
-			log.Print("Path is available from disk: " + subPath)
 			fileCache.MarkPathAvailable(subPath, headers)
+			log.Print("From cache checked: " + subPath)
 			return serveCache(w, r, headers)
 		}
 	}
 
+	// if busy
+	log.Print("Serve and store: " + subPath)
 	return serveAndStore(w, r)
-
 	// return passThrough(w, r)
 }
 
