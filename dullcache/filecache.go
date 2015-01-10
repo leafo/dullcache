@@ -5,6 +5,8 @@ import (
 	"os"
 	"path"
 	"sync"
+
+	"github.com/stvp/slug"
 )
 
 type FileCache struct {
@@ -45,7 +47,7 @@ func (cache *FileCache) CountPurgedPaths() int {
 }
 
 func (cache *FileCache) CacheFilePath(subPath string) string {
-	return path.Join(cache.basePath, subPath)
+	return path.Join(cache.basePath, slug.Clean(subPath))
 }
 
 func (cache *FileCache) PathAvailable(path string) http.Header {
