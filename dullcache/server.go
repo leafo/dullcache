@@ -54,13 +54,7 @@ func authAdminRequest(r *http.Request) bool {
 }
 
 func openRemote(r *http.Request) (*http.Response, error) {
-	reqUrl := *r.URL
-	fetchUrl := baseUrl + reqUrl.Path
-
-	if reqUrl.RawQuery != "" {
-		fetchUrl += "?" + reqUrl.RawQuery
-	}
-
+	fetchUrl := baseUrl + r.RequestURI
 	log.Print("Remote GET: " + fetchUrl)
 	return http.Get(fetchUrl)
 }
@@ -88,7 +82,7 @@ func headPath(subPath string) (http.Header, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to head file")
+		return nil, fmt.Errorf("failed to head file: %v", res.StatusCode)
 	}
 
 	return filterHeaders(res.Header), err
@@ -249,6 +243,11 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 
 		if size > 0 {
 			headers, err := headPath(subPath)
+
+			if err != nil {
+				return err
+			}
+
 			contentLenStr := headers.Get("Content-Length")
 			contentLen, err := strconv.Atoi(contentLenStr)
 
