@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
@@ -19,6 +20,7 @@ var cacheBase = "cache"
 
 var fileCache *FileCache
 var config *Config
+var headURLSigner *urlSigner
 
 var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
 
@@ -72,9 +74,21 @@ func filterHeaders(headers http.Header) http.Header {
 }
 
 func headPath(subPath string) (http.Header, error) {
-	log.Print("Remote HEAD: " + subPath)
+	headURL := baseUrl + subPath
+	if headURLSigner != nil {
+		splits := strings.SplitN(subPath, "/", 3)
+		if len(splits) == 3 {
+			var err error
+			// TODO: this generates bad urls for names with symbols in them
+			headURL, err = headURLSigner.SignUrl("HEAD", splits[1], splits[2])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
-	res, err := http.Head(baseUrl + subPath)
+	log.Print("Remote HEAD: " + headURL)
+	res, err := http.Head(headURL)
 	if err != nil {
 		return nil, err
 	}
@@ -212,6 +226,7 @@ func purgeHandler(w http.ResponseWriter, r *http.Request) error {
 	if !authAdminRequest(r) {
 		return fmt.Errorf("unauthorized")
 	}
+	log.Print("Purging", r.URL.Path)
 	fileCache.MarkPathNeedsPurge(r.URL.Path)
 	return nil
 }
@@ -244,22 +259,20 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 		if size > 0 {
 			headers, err := headPath(subPath)
 
-			if err != nil {
-				return err
-			}
+			if err == nil {
+				contentLenStr := headers.Get("Content-Length")
+				contentLen, err := strconv.Atoi(contentLenStr)
 
-			contentLenStr := headers.Get("Content-Length")
-			contentLen, err := strconv.Atoi(contentLenStr)
-
-			if err != nil {
-				return err
-			}
-
-			if int64(contentLen) == size {
-				fileCache.MarkPathAvailable(subPath, headers)
-				log.Print("From cache checked: " + subPath)
-				atomic.AddInt64(&serverStats.checkedHits, 1)
-				return serveCache(w, r, headers)
+				if err == nil {
+					if int64(contentLen) == size {
+						fileCache.MarkPathAvailable(subPath, headers)
+						log.Print("From cache checked: " + subPath)
+						atomic.AddInt64(&serverStats.checkedHits, 1)
+						return serveCache(w, r, headers)
+					}
+				}
+			} else {
+				log.Print("Warning, failed to HEAD path", subPath)
 			}
 		}
 	}
@@ -290,6 +303,13 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 func StartDullCache(_config *Config) error {
 	fileCache = NewFileCache("cache")
 	config = _config
+	if config.GoogleAccessID != "" && config.GoogleStoragePrivateKeyPath != "" {
+		signer, err := NewURLSigner(config.GoogleAccessID, config.GoogleStoragePrivateKeyPath)
+		if err != nil {
+			log.Print("Warning: failed to create URL signer:", err)
+		}
+		headURLSigner = signer
+	}
 
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))

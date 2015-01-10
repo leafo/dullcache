@@ -23,7 +23,7 @@ func NewURLSigner(googleAccessID, privateKeyPath string) (*urlSigner, error) {
 	return &urlSigner{
 		privateKey:     pemBytes,
 		googleAccessID: googleAccessID,
-		expireAfter:    time.Duration(20) * time.Second,
+		expireAfter:    time.Duration(5) * time.Minute,
 	}, nil
 }
 

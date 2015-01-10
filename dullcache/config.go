@@ -9,15 +9,19 @@ import (
 const DefaultConfigFname = "dullcache.json"
 
 type Config struct {
-	Address        string
-	AdminAddresses []string
-	CacheDir       string
+	Address                     string
+	AdminAddresses              []string
+	CacheDir                    string
+	GoogleAccessID              string
+	GoogleStoragePrivateKeyPath string
 }
 
 var defaultConfig = Config{
-	Address:        ":9192",
-	CacheDir:       "cache",
-	AdminAddresses: []string{"127.0.0.1", "[::1]"},
+	Address:                     ":9192",
+	CacheDir:                    "cache",
+	AdminAddresses:              []string{"127.0.0.1", "[::1]"},
+	GoogleAccessID:              "",
+	GoogleStoragePrivateKeyPath: "",
 }
 
 func LoadConfig(fname string) *Config {
