@@ -318,6 +318,10 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func statHandler(w http.ResponseWriter, r *http.Request) error {
+	if r.Method == "HEAD" {
+		return nil
+	}
+
 	stats.RLock()
 	defer stats.RUnlock()
 
