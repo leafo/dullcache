@@ -228,9 +228,10 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 	err := headURLSigner.VerifyURL(r.URL)
 
 	if err != nil {
-		stats.incrPasses(1)
-		log.Print("Passing unverifiable URL: ", r.URL.Path)
-		return passThrough(w, r)
+		return err
+		// stats.incrPasses(1)
+		// log.Print("Passing unverifiable URL: ", r.URL.Path)
+		// return passThrough(w, r)
 	}
 
 	filePath, err := fileCache.CacheFilePath(r.URL.Path)
