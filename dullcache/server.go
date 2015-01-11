@@ -162,7 +162,12 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 		needsPurge = fileCache.PathNeedsPurge(subPath)
 
 		// it's now busy because of us
-		cacheTarget := fileCache.CacheFilePath(subPath)
+		cacheTarget, err := fileCache.CacheFilePath(subPath)
+
+		if err != nil {
+			return err
+		}
+
 		err = os.MkdirAll(path.Dir(cacheTarget), 0755)
 
 		if err != nil {
@@ -222,7 +227,13 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header) error {
-	file, err := os.Open(fileCache.CacheFilePath(r.URL.Path))
+	filePath, err := fileCache.CacheFilePath(r.URL.Path)
+
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Open(filePath)
 
 	if err != nil {
 		return err
@@ -271,6 +282,10 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	subPath := r.URL.Path
+
+	if subPath == "/" {
+		return nil
+	}
 
 	if !fileCache.PathNeedsPurge(subPath) {
 		availableHeaders := fileCache.PathAvailable(subPath)

@@ -1,6 +1,7 @@
 package dullcache
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path"
@@ -46,8 +47,14 @@ func (cache *FileCache) CountPurgedPaths() int {
 	return len(cache.purgedPaths)
 }
 
-func (cache *FileCache) CacheFilePath(subPath string) string {
-	return path.Join(cache.basePath, slug.Clean(subPath))
+func (cache *FileCache) CacheFilePath(subPath string) (string, error) {
+	slug := slug.Clean(subPath)
+
+	if slug == "" {
+		return "", fmt.Errorf("invalid slug")
+	}
+
+	return path.Join(cache.basePath, slug), nil
 }
 
 func (cache *FileCache) PathAvailable(path string) http.Header {
@@ -57,7 +64,13 @@ func (cache *FileCache) PathAvailable(path string) http.Header {
 }
 
 func (cache *FileCache) PathMaybeAvailable(path string) (int64, error) {
-	info, err := os.Stat(cache.CacheFilePath(path))
+	path, err := cache.CacheFilePath(path)
+
+	if err != nil {
+		return 0, err
+	}
+
+	info, err := os.Stat(path)
 
 	if os.IsNotExist(err) {
 		return 0, nil
