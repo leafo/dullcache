@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dustin/go-humanize"
 )
@@ -26,6 +27,10 @@ var headURLSigner *urlSigner
 var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
 
 var stats *serverStats
+
+func calculateSpeedKbs(copied int64, elapsed time.Duration) int64 {
+	return int64(float64(copied) / float64(elapsed) * float64(time.Second) / 1024)
+}
 
 func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := fn(w, r); err != nil {
@@ -185,8 +190,12 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	passHeaders(w, remoteRes.Header)
 
 	stats.incrActiveTransfers(1)
+	start := time.Now()
 	copied, err := io.Copy(targetWriter, remoteRes.Body)
+	elapsed := time.Since(start)
 	stats.incrActiveTransfers(-1)
+
+	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
 	stats.incrBytesFetched(uint64(copied))
 	stats.incrBytesSent(uint64(copied))
@@ -224,7 +233,13 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 	passHeaders(w, fileHeaders)
 
+	stats.incrActiveTransfers(1)
+	start := time.Now()
 	copied, err := io.Copy(w, file)
+	elapsed := time.Since(start)
+	stats.incrActiveTransfers(-1)
+
+	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
 	stats.incrBytesSent(uint64(copied))
 
