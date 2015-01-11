@@ -10,8 +10,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
+
+	"github.com/dustin/go-humanize"
 )
 
 type errorHandler func(http.ResponseWriter, *http.Request) error
@@ -25,33 +25,7 @@ var headURLSigner *urlSigner
 
 var headersToFilter = map[string]bool{"Accept-Ranges": true, "Server": true}
 
-var serverStats struct {
-	bytesFetched    int64
-	bytesSent       int64
-	fastHits        int64
-	checkedHits     int64
-	passes          int64
-	stores          int64
-	activeTransfers int64
-	sizeDist        map[int64]int64
-	distMutex       sync.RWMutex
-}
-
-var sizeDistsMB = []int64{0, 1, 10, 20, 30, 50, 100, 200, 500, 750}
-
-// amount in bytes
-func incrementSizeDist(amount int64) {
-	fmt.Print("incrementing", amount, "bytes")
-	mb := amount / (1024 * 1024)
-	for i := len(sizeDistsMB) - 1; i >= 0; i-- {
-		if mb >= sizeDistsMB[i] {
-			serverStats.distMutex.Lock()
-			defer serverStats.distMutex.Unlock()
-			serverStats.sizeDist[sizeDistsMB[i]] += 1
-			return
-		}
-	}
-}
+var stats *serverStats
 
 func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := fn(w, r); err != nil {
@@ -139,15 +113,15 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 
 	passHeaders(w, remoteRes.Header)
 
-	atomic.AddInt64(&serverStats.activeTransfers, 1)
+	stats.incrActiveTransfers(1)
 	copied, err := io.Copy(w, remoteRes.Body)
-	atomic.AddInt64(&serverStats.activeTransfers, -1)
+	stats.incrActiveTransfers(-1)
 
-	atomic.AddInt64(&serverStats.bytesFetched, copied)
-	atomic.AddInt64(&serverStats.bytesSent, copied)
+	stats.incrBytesFetched(uint64(copied))
+	stats.incrBytesSent(uint64(copied))
 
 	if err == nil {
-		incrementSizeDist(copied)
+		stats.incrSizeDist(uint64(copied))
 	}
 
 	return nil
@@ -165,9 +139,9 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	if remoteRes.StatusCode != 200 {
 		passHeaders(w, remoteRes.Header)
-		atomic.AddInt64(&serverStats.activeTransfers, 1)
+		stats.incrActiveTransfers(1)
 		_, err = io.Copy(w, remoteRes.Body)
-		atomic.AddInt64(&serverStats.activeTransfers, -1)
+		stats.incrActiveTransfers(-1)
 		return err
 	}
 
@@ -202,23 +176,23 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 		targetWriter = io.MultiWriter(file, targetWriter)
 		log.Print("Serve and store: " + subPath)
-		atomic.AddInt64(&serverStats.stores, 1)
+		stats.incrStores(1)
 	} else {
 		log.Print("Pass through (from store): " + subPath)
-		atomic.AddInt64(&serverStats.passes, 1)
+		stats.incrPasses(1)
 	}
 
 	passHeaders(w, remoteRes.Header)
 
-	atomic.AddInt64(&serverStats.activeTransfers, 1)
+	stats.incrActiveTransfers(1)
 	copied, err := io.Copy(targetWriter, remoteRes.Body)
-	atomic.AddInt64(&serverStats.activeTransfers, -1)
+	stats.incrActiveTransfers(-1)
 
-	atomic.AddInt64(&serverStats.bytesFetched, copied)
-	atomic.AddInt64(&serverStats.bytesSent, copied)
+	stats.incrBytesFetched(uint64(copied))
+	stats.incrBytesSent(uint64(copied))
 
 	if err == nil {
-		incrementSizeDist(copied)
+		stats.incrSizeDist(uint64(copied))
 	}
 
 	if err != nil {
@@ -252,10 +226,10 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 	copied, err := io.Copy(w, file)
 
-	atomic.AddInt64(&serverStats.bytesSent, copied)
+	stats.incrBytesSent(uint64(copied))
 
 	if err == nil {
-		incrementSizeDist(copied)
+		stats.incrSizeDist(uint64(copied))
 	}
 
 	return err
@@ -287,7 +261,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 		availableHeaders := fileCache.PathAvailable(subPath)
 		if availableHeaders != nil {
 			log.Print("From cache quick: " + subPath)
-			atomic.AddInt64(&serverStats.fastHits, 1)
+			stats.incrFastHits(1)
 			return serveCache(w, r, availableHeaders)
 		}
 
@@ -308,7 +282,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 					if int64(contentLen) == size {
 						fileCache.MarkPathAvailable(subPath, headers)
 						log.Print("From cache checked: " + subPath)
-						atomic.AddInt64(&serverStats.checkedHits, 1)
+						stats.incrCheckedHits(1)
 						return serveCache(w, r, headers)
 					}
 				}
@@ -320,7 +294,7 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 
 	if fileCache.PathBusy(subPath) {
 		log.Print("Pass through" + subPath)
-		atomic.AddInt64(&serverStats.passes, 1)
+		stats.incrPasses(1)
 		return passThrough(w, r)
 	}
 
@@ -328,26 +302,26 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func statHandler(w http.ResponseWriter, r *http.Request) error {
-	serverStats.distMutex.RLock()
-	defer serverStats.distMutex.RUnlock()
+	stats.RLock()
+	defer stats.RUnlock()
 
 	fmt.Fprintln(w, "Available paths: ", fileCache.CountAvailablePaths())
 	fmt.Fprintln(w, "Busy paths: ", fileCache.CountBusyPaths())
 	fmt.Fprintln(w, "Purged paths: ", fileCache.CountPurgedPaths())
-	fmt.Fprintln(w, "Fast hits: ", serverStats.fastHits)
-	fmt.Fprintln(w, "Checked hits: ", serverStats.checkedHits)
-	fmt.Fprintln(w, "Passes: ", serverStats.passes)
-	fmt.Fprintln(w, "Stores: ", serverStats.stores)
-	fmt.Fprintln(w, "Active transfers: ", serverStats.activeTransfers)
+	fmt.Fprintln(w, "Fast hits: ", stats.fastHits)
+	fmt.Fprintln(w, "Checked hits: ", stats.checkedHits)
+	fmt.Fprintln(w, "Passes: ", stats.passes)
+	fmt.Fprintln(w, "Stores: ", stats.stores)
+	fmt.Fprintln(w, "Active transfers: ", stats.activeTransfers)
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Bytes fetched: ", serverStats.bytesFetched)
-	fmt.Fprintln(w, "Bytes sent: ", serverStats.bytesSent)
+	fmt.Fprintln(w, "Bytes fetched: ", humanize.Bytes(stats.bytesFetched))
+	fmt.Fprintln(w, "Bytes sent: ", humanize.Bytes(stats.bytesSent))
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Size dist")
 	fmt.Fprintln(w, "=========")
 	for _, size := range sizeDistsMB {
-		fmt.Fprintln(w, size, "MB", serverStats.sizeDist[size])
+		fmt.Fprintln(w, size, "MB", stats.sizeDist[size])
 	}
 
 	return nil
@@ -364,7 +338,7 @@ func StartDullCache(_config *Config) error {
 		headURLSigner = signer
 	}
 
-	serverStats.sizeDist = make(map[int64]int64)
+	stats = newServerStats()
 
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
