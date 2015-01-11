@@ -118,9 +118,9 @@ func passThrough(w http.ResponseWriter, r *http.Request) error {
 
 	passHeaders(w, remoteRes.Header)
 
-	stats.incrActiveTransfers(1)
+	stats.incrActivePath(r.URL.Path, 1)
 	copied, err := io.Copy(w, remoteRes.Body)
-	stats.incrActiveTransfers(-1)
+	stats.incrActivePath(r.URL.Path, -1)
 
 	stats.incrBytesFetched(uint64(copied))
 	stats.incrBytesSent(uint64(copied))
@@ -144,9 +144,9 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	if remoteRes.StatusCode != 200 {
 		passHeaders(w, remoteRes.Header)
-		stats.incrActiveTransfers(1)
+		stats.incrActivePath(subPath, 1)
 		_, err = io.Copy(w, remoteRes.Body)
-		stats.incrActiveTransfers(-1)
+		stats.incrActivePath(subPath, -1)
 		return err
 	}
 
@@ -189,11 +189,11 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	passHeaders(w, remoteRes.Header)
 
-	stats.incrActiveTransfers(1)
+	stats.incrActivePath(subPath, 1)
 	start := time.Now()
 	copied, err := io.Copy(targetWriter, remoteRes.Body)
 	elapsed := time.Since(start)
-	stats.incrActiveTransfers(-1)
+	stats.incrActivePath(subPath, -1)
 
 	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
@@ -233,11 +233,11 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 	passHeaders(w, fileHeaders)
 
-	stats.incrActiveTransfers(1)
+	stats.incrActivePath(r.URL.Path, 1)
 	start := time.Now()
 	copied, err := io.Copy(w, file)
 	elapsed := time.Since(start)
-	stats.incrActiveTransfers(-1)
+	stats.incrActivePath(r.URL.Path, -1)
 
 	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
@@ -327,7 +327,7 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w, "Checked hits: ", stats.checkedHits)
 	fmt.Fprintln(w, "Passes: ", stats.passes)
 	fmt.Fprintln(w, "Stores: ", stats.stores)
-	fmt.Fprintln(w, "Active transfers: ", stats.activeTransfers)
+	fmt.Fprintln(w, "Active transfers: ", stats.countActivePaths())
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Bytes fetched: ", humanize.Bytes(stats.bytesFetched))
 	fmt.Fprintln(w, "Bytes sent: ", humanize.Bytes(stats.bytesSent))

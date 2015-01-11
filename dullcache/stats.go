@@ -11,14 +11,14 @@ import (
 )
 
 type serverStats struct {
-	bytesFetched    uint64
-	bytesSent       uint64
-	fastHits        uint64
-	checkedHits     uint64
-	passes          uint64
-	stores          uint64
-	activeTransfers int64
-	sizeDist        map[uint64]uint64
+	bytesFetched uint64
+	bytesSent    uint64
+	fastHits     uint64
+	checkedHits  uint64
+	passes       uint64
+	stores       uint64
+	activePaths  map[string]int64
+	sizeDist     map[uint64]uint64
 
 	sync.RWMutex
 }
@@ -27,7 +27,8 @@ var sizeDistsMB = []uint64{0, 1, 10, 20, 30, 50, 100, 200, 500, 750}
 
 func newServerStats() *serverStats {
 	return &serverStats{
-		sizeDist: make(map[uint64]uint64),
+		activePaths: make(map[string]int64),
+		sizeDist:    make(map[uint64]uint64),
 	}
 }
 
@@ -78,6 +79,17 @@ func (stats *serverStats) incrStores(amount uint64) {
 	atomic.AddUint64(&stats.stores, amount)
 }
 
-func (stats *serverStats) incrActiveTransfers(amount int64) {
-	atomic.AddInt64(&stats.activeTransfers, amount)
+func (stats *serverStats) countActivePaths() int {
+	stats.RLock()
+	defer stats.RUnlock()
+	return len(stats.activePaths)
+}
+
+func (stats *serverStats) incrActivePath(path string, amount int64) {
+	stats.Lock()
+	defer stats.Unlock()
+	stats.activePaths[path] += amount
+	if stats.activePaths[path] == 0 {
+		delete(stats.activePaths, path)
+	}
 }
