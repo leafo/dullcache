@@ -56,7 +56,7 @@ func authAdminRequest(r *http.Request) bool {
 
 func openRemote(r *http.Request) (*http.Response, error) {
 	fetchUrl := baseUrl + r.RequestURI
-	log.Print("Remote GET: " + fetchUrl)
+	log.Print("Remote GET: ", fetchUrl)
 	return http.Get(fetchUrl)
 }
 
@@ -86,7 +86,7 @@ func headPath(subPath string) (http.Header, error) {
 		}
 	}
 
-	log.Print("Remote HEAD: " + headURL)
+	log.Print("Remote HEAD: ", headURL)
 	res, err := http.Head(headURL)
 	if err != nil {
 		return nil, err
@@ -180,10 +180,10 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 		defer file.Close()
 
 		targetWriter = io.MultiWriter(file, targetWriter)
-		log.Print("Serve and store: " + subPath)
+		log.Print("Serve and store: ", subPath)
 		stats.incrStores(1)
 	} else {
-		log.Print("Pass through (from store): " + subPath)
+		log.Print("Pass through (from store): ", subPath)
 		stats.incrPasses(1)
 	}
 
@@ -205,7 +205,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err != nil {
-		log.Print("Aborted writing cache: " + subPath)
+		log.Print("Aborted writing cache: ", subPath)
 		// can't render normal error handler because we already set headers, so do
 		// nothing
 		return nil
@@ -213,7 +213,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	if writingCache {
 		fileCache.MarkPathAvailable(subPath, filterHeaders(remoteRes.Header))
-		log.Print("Cache stored" + subPath)
+		log.Print("Cache stored: ", subPath)
 		if needsPurge {
 			fileCache.ReleasePathPurge(subPath)
 		}
@@ -252,11 +252,11 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 func purgeHandler(w http.ResponseWriter, r *http.Request) error {
 	if !authAdminRequest(r) {
-		log.Print("Unauthorized purge attempt", r.URL.Path)
+		log.Print("Unauthorized purge attempt: ", r.URL.Path)
 		return fmt.Errorf("unauthorized")
 	}
 
-	log.Print("Purging ", r.URL.Path)
+	log.Print("Purging: ", r.URL.Path)
 	fileCache.MarkPathNeedsPurge(r.URL.Path)
 	return nil
 }
@@ -296,19 +296,19 @@ func cacheHandler(w http.ResponseWriter, r *http.Request) error {
 				if err == nil {
 					if int64(contentLen) == size {
 						fileCache.MarkPathAvailable(subPath, headers)
-						log.Print("From cache checked: " + subPath)
+						log.Print("From cache checked: ", subPath)
 						stats.incrCheckedHits(1)
 						return serveCache(w, r, headers)
 					}
 				}
 			} else {
-				log.Print("Warning, failed to HEAD path", subPath)
+				log.Print("Warning, failed to HEAD path: ", subPath)
 			}
 		}
 	}
 
 	if fileCache.PathBusy(subPath) {
-		log.Print("Pass through" + subPath)
+		log.Print("Pass through: ", subPath)
 		stats.incrPasses(1)
 		return passThrough(w, r)
 	}
@@ -349,7 +349,7 @@ func StartDullCache(_config *Config) error {
 	if config.GoogleAccessID != "" && config.GoogleStoragePrivateKeyPath != "" {
 		signer, err := NewURLSigner(config.GoogleAccessID, config.GoogleStoragePrivateKeyPath)
 		if err != nil {
-			log.Print("Warning: failed to create URL signer:", err)
+			log.Print("Warning: failed to create URL signer: ", err)
 		}
 		headURLSigner = signer
 	}
@@ -359,6 +359,6 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
-	log.Print("Listening on: " + config.Address)
+	log.Print("Listening on: ", config.Address)
 	return http.ListenAndServe(config.Address, nil)
 }
