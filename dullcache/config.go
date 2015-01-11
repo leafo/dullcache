@@ -14,6 +14,7 @@ type Config struct {
 	CacheDir                    string
 	GoogleAccessID              string
 	GoogleStoragePrivateKeyPath string
+	BaseURL                     string
 }
 
 var defaultConfig = Config{
@@ -22,6 +23,7 @@ var defaultConfig = Config{
 	AdminAddresses:              []string{"127.0.0.1", "[::1]"},
 	GoogleAccessID:              "",
 	GoogleStoragePrivateKeyPath: "",
+	BaseURL:                     "http://commondatastorage.googleapis.com",
 }
 
 func LoadConfig(fname string) *Config {

@@ -18,9 +18,6 @@ import (
 
 type errorHandler func(http.ResponseWriter, *http.Request) error
 
-var baseUrl = "http://commondatastorage.googleapis.com"
-var cacheBase = "cache"
-
 var fileCache *FileCache
 var config *Config
 var headURLSigner *urlSigner
@@ -56,8 +53,8 @@ func authAdminRequest(r *http.Request) bool {
 }
 
 func openRemote(r *http.Request) (*http.Response, error) {
-	fetchUrl := baseUrl + r.RequestURI
-	log.Print("Remote GET: ", fetchUrl)
+	fetchUrl := config.BaseURL + r.RequestURI
+	log.Print("Remote GET: ", r.URL.Path)
 	return http.Get(fetchUrl)
 }
 
@@ -74,7 +71,7 @@ func filterHeaders(headers http.Header) http.Header {
 }
 
 func headPath(subPath string) (http.Header, error) {
-	headURL := baseUrl + subPath
+	headURL := config.BaseURL + subPath
 	if headURLSigner != nil {
 		splits := strings.SplitN(subPath, "/", 3)
 		if len(splits) == 3 {
@@ -87,7 +84,7 @@ func headPath(subPath string) (http.Header, error) {
 		}
 	}
 
-	log.Print("Remote HEAD: ", headURL)
+	log.Print("Remote HEAD: ", subPath)
 	res, err := http.Head(headURL)
 	if err != nil {
 		return nil, err
