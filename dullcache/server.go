@@ -247,7 +247,7 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 		stats.incrSizeDist(uint64(copied))
 	}
 
-	return err
+	return nil
 }
 
 func purgeHandler(w http.ResponseWriter, r *http.Request) error {
