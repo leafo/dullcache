@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cupcake/mannersagain"
 	"github.com/dustin/go-humanize"
 )
 
@@ -368,6 +369,5 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
-	log.Print("Listening on: ", config.Address)
-	return http.ListenAndServe(config.Address, nil)
+	return mannersagain.ListenAndServe(config.Address, nil)
 }
