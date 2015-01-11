@@ -342,6 +342,15 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func statActive(w http.ResponseWriter, r *http.Request) error {
+	stats.RLock()
+	defer stats.RUnlock()
+	for path, count := range stats.activePaths {
+		fmt.Fprintln(w, humanize.Comma(count), path)
+	}
+	return nil
+}
+
 func StartDullCache(_config *Config) error {
 	fileCache = NewFileCache("cache")
 	config = _config
@@ -355,6 +364,7 @@ func StartDullCache(_config *Config) error {
 
 	stats = newServerStats()
 
+	http.Handle("/stat/active", errorHandler(statActive))
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
