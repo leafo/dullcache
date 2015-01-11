@@ -224,9 +224,11 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 func purgeHandler(w http.ResponseWriter, r *http.Request) error {
 	if !authAdminRequest(r) {
+		log.Print("Unauthorized purge attempt", r.URL.Path)
 		return fmt.Errorf("unauthorized")
 	}
-	log.Print("Purging", r.URL.Path)
+
+	log.Print("Purging ", r.URL.Path)
 	fileCache.MarkPathNeedsPurge(r.URL.Path)
 	return nil
 }
