@@ -1,6 +1,11 @@
 package dullcache
 
 import (
+	"bytes"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 )
@@ -37,6 +42,16 @@ func (stats *serverStats) incrSizeDist(amount uint64) {
 			return
 		}
 	}
+}
+
+func (stats *serverStats) countOpenFiles() int {
+	out, err := exec.Command("/bin/sh", "-c", fmt.Sprintf("lsof -p %v", os.Getpid())).Output()
+	if err != nil {
+		log.Print("warning:", err)
+		return 0
+	}
+
+	return bytes.Count(out, []byte("\n"))
 }
 
 func (stats *serverStats) incrBytesFetched(amount uint64) {
