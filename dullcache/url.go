@@ -68,7 +68,7 @@ func (signer *urlSigner) VerifyURL(checkURL *url.URL) error {
 
 	// already expired, skip
 	if int(time.Now().Unix()) > expires {
-		return fmt.Errorf("already expired")
+		return fmt.Errorf("already expired: ", int(time.Now().Unix())-expires)
 	}
 
 	// need to fix the special chars issue before I can enable this
