@@ -193,7 +193,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 	elapsed := time.Since(start)
 	stats.incrActivePath(subPath, -1)
 
-	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
+	log.Print("Transfered ", subPath, " ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
 	stats.incrBytesFetched(uint64(copied))
 	stats.incrBytesSent(uint64(copied))
@@ -237,7 +237,7 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 	elapsed := time.Since(start)
 	stats.incrActivePath(r.URL.Path, -1)
 
-	log.Print("Finished transfer ", calculateSpeedKbs(copied, elapsed), " KB/s")
+	log.Print("Transfered ", r.URL.Path, " ", calculateSpeedKbs(copied, elapsed), " KB/s")
 
 	stats.incrBytesSent(uint64(copied))
 
