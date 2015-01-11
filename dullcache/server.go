@@ -225,6 +225,11 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header) error {
+	err := headURLSigner.VerifyURL(r.URL)
+	if err != nil {
+		return err
+	}
+
 	filePath, err := fileCache.CacheFilePath(r.URL.Path)
 
 	if err != nil {
