@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cupcake/mannersagain"
@@ -73,11 +72,10 @@ func filterHeaders(headers http.Header) http.Header {
 func headPath(subPath string) (http.Header, error) {
 	headURL := config.BaseURL + subPath
 	if headURLSigner != nil {
-		splits := strings.SplitN(subPath, "/", 3)
-		if len(splits) == 3 {
-			var err error
+		bucket, name, err := headURLSigner.SplitBucketAndName(subPath)
+		if err == nil {
 			// TODO: this generates bad urls for names with symbols in them
-			headURL, err = headURLSigner.SignUrl("HEAD", splits[1], splits[2])
+			headURL, err = headURLSigner.SignURL("HEAD", bucket, name)
 			if err != nil {
 				return nil, err
 			}
@@ -250,7 +248,7 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 	stats.incrActivePath(r.URL.Path, -1)
 
 	log.Print("Transfered ", r.URL.Path, " ",
-		calculateSpeedKbs(copied, elapsed), " KB/s", r.RemoteAddr)
+		calculateSpeedKbs(copied, elapsed), " KB/s ", r.RemoteAddr)
 
 	stats.incrBytesSent(uint64(copied))
 

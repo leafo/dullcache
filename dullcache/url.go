@@ -27,7 +27,7 @@ func NewURLSigner(googleAccessID, privateKeyPath string) (*urlSigner, error) {
 	}, nil
 }
 
-func (signer *urlSigner) SignUrl(method, bucket, name string) (string, error) {
+func (signer *urlSigner) SignURL(method, bucket, name string) (string, error) {
 	options := storage.SignedURLOptions{
 		GoogleAccessID: signer.googleAccessID,
 		PrivateKey:     signer.privateKey,
@@ -37,3 +37,14 @@ func (signer *urlSigner) SignUrl(method, bucket, name string) (string, error) {
 
 	return storage.SignedURL(bucket, name, &options)
 }
+
+func (signer *urlSigner) SplitBucketAndName(path string) (string, string, error) {
+	splits := strings.SplitN(path, "/", 3)
+
+	if len(splits) == 3 {
+		return splits[1], splits[2], nil
+	}
+
+	return "", "", fmt.Errorf("failed to split bucket and name")
+}
+
