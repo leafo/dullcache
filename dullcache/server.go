@@ -331,7 +331,6 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Bytes fetched: ", humanize.Bytes(stats.bytesFetched))
 	fmt.Fprintln(w, "Bytes sent: ", humanize.Bytes(stats.bytesSent))
-	fmt.Fprintln(w, "Open files ", stats.countOpenFiles())
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Size dist")
