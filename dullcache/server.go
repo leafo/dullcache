@@ -389,6 +389,7 @@ func StartDullCache(_config *Config) error {
 
 	stats = newServerStats()
 
+	http.DefaultClient.Timeout = time.Duration(4) * time.Hour
 	http.Handle("/stat/active", errorHandler(statActive))
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
