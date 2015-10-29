@@ -225,12 +225,14 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 }
 
 func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header) error {
-	err := headURLSigner.VerifyURL(r.URL)
+	if headURLSigner != nil {
+		err := headURLSigner.VerifyURL(r.URL)
 
-	if err != nil {
-		stats.incrPasses(1)
-		log.Print("Passing unverifiable URL: ", r.URL.Path)
-		return passThrough(w, r)
+		if err != nil {
+			stats.incrPasses(1)
+			log.Print("Passing unverifiable URL: ", r.URL.Path)
+			return passThrough(w, r)
+		}
 	}
 
 	filePath, err := fileCache.CacheFilePath(r.URL.Path)
@@ -367,7 +369,7 @@ func statHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func statActive(w http.ResponseWriter, r *http.Request) error {
+func statActiveHandler(w http.ResponseWriter, r *http.Request) error {
 	stats.RLock()
 	defer stats.RUnlock()
 	for path, count := range stats.activePaths {
@@ -390,7 +392,8 @@ func StartDullCache(_config *Config) error {
 	stats = newServerStats()
 
 	http.DefaultClient.Timeout = time.Duration(4) * time.Hour
-	http.Handle("/stat/active", errorHandler(statActive))
+
+	http.Handle("/stat/active", errorHandler(statActiveHandler))
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
