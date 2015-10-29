@@ -428,6 +428,27 @@ func adminStatPath(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func adminAvailableSize(w http.ResponseWriter, r *http.Request) error {
+	fileCache.availableMutex.RLock()
+	defer fileCache.availableMutex.RUnlock()
+
+	var total int64
+
+	for _, headers := range fileCache.availablePaths {
+		contentLenStr := headers.Get("Content-Length")
+		if contentLenStr != "" {
+			contentLen, err := strconv.Atoi(contentLenStr)
+			if err == nil {
+				total += int64(contentLen)
+			}
+
+		}
+	}
+
+	fmt.Fprintln(w, total)
+	return nil
+}
+
 func StartDullCache(_config *Config) error {
 	fileCache = NewFileCache("cache")
 	config = _config
@@ -449,6 +470,7 @@ func StartDullCache(_config *Config) error {
 
 	http.Handle("/admin/list-paths", adminHandler(adminListHandler))
 	http.Handle("/admin/stat-path", adminHandler(adminStatPath))
+	http.Handle("/admin/available-size", adminHandler(adminAvailableSize))
 
 	return mannersagain.ListenAndServe(config.Address, nil)
 }
