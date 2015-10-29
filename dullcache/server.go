@@ -1,6 +1,7 @@
 package dullcache
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,6 +17,7 @@ import (
 )
 
 type errorHandler func(http.ResponseWriter, *http.Request) error
+type adminHandler func(http.ResponseWriter, *http.Request) error
 
 var fileCache *FileCache
 var config *Config
@@ -30,6 +32,16 @@ func calculateSpeedKbs(copied int64, elapsed time.Duration) int64 {
 }
 
 func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := fn(w, r); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+}
+
+func (fn adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !authAdminRequest(r) {
+		http.Error(w, "Invalid request", 500)
+	}
+
 	if err := fn(w, r); err != nil {
 		http.Error(w, err.Error(), 500)
 	}
@@ -379,17 +391,39 @@ func statActiveHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func adminListHandler(w http.ResponseWriter, r *http.Request) error {
-	if !authAdminRequest(r) {
-		log.Print("Unauthorized purge attempt: ", r.URL.Path)
-		return fmt.Errorf("unauthorized")
-	}
-
 	fileCache.availableMutex.RLock()
 	defer fileCache.availableMutex.RUnlock()
 
 	for path := range fileCache.availablePaths {
 		fmt.Fprintln(w, path)
 	}
+
+	return nil
+}
+
+func adminStatPath(w http.ResponseWriter, r *http.Request) error {
+	values := r.URL.Query()
+	path := values.Get("path")
+	if path == "" {
+		return fmt.Errorf("missing path to stat")
+	}
+
+	fileCache.availableMutex.RLock()
+	defer fileCache.availableMutex.RUnlock()
+
+	headers, found := fileCache.availablePaths[path]
+
+	if !found {
+		return fmt.Errorf("path is not available")
+	}
+
+	out, err := json.MarshalIndent(headers, "", "  ")
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(w, string(out))
 
 	return nil
 }
@@ -413,7 +447,8 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
-	http.Handle("/admin/list-paths", errorHandler(adminListHandler))
+	http.Handle("/admin/list-paths", adminHandler(adminListHandler))
+	http.Handle("/admin/stat-path", adminHandler(adminStatPath))
 
 	return mannersagain.ListenAndServe(config.Address, nil)
 }
