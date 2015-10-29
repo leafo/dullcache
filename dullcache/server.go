@@ -378,6 +378,22 @@ func statActiveHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func adminListHandler(w http.ResponseWriter, r *http.Request) error {
+	if !authAdminRequest(r) {
+		log.Print("Unauthorized purge attempt: ", r.URL.Path)
+		return fmt.Errorf("unauthorized")
+	}
+
+	fileCache.availableMutex.RLock()
+	defer fileCache.availableMutex.RUnlock()
+
+	for path := range fileCache.availablePaths {
+		fmt.Fprintln(w, path)
+	}
+
+	return nil
+}
+
 func StartDullCache(_config *Config) error {
 	fileCache = NewFileCache("cache")
 	config = _config
@@ -396,6 +412,8 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/stat/active", errorHandler(statActiveHandler))
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
+
+	http.Handle("/admin/list-paths", errorHandler(adminListHandler))
 
 	return mannersagain.ListenAndServe(config.Address, nil)
 }
