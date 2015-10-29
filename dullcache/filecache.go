@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"sync"
+	"syscall"
 
 	"github.com/stvp/slug"
 )
@@ -164,4 +165,33 @@ func (cache *FileCache) TrackedSize() int64 {
 	}
 
 	return total
+}
+
+func (cache *FileCache) DeletePath(path string) error {
+	fname, err := fileCache.CacheFilePath(path)
+
+	if err != nil {
+		return err
+	}
+
+	if !cache.MarkPathBusy(path) {
+		return fmt.Errorf("path is busy")
+	}
+
+	// remove from everything
+	cache.availableMutex.Lock()
+	defer cache.availableMutex.Unlock()
+	delete(cache.availablePaths, path)
+
+	cache.purgedMutex.Lock()
+	defer cache.purgedMutex.Unlock()
+	delete(cache.purgedPaths, path)
+
+	cache.accessList.RemovePath(path)
+
+	cache.busyMutex.Lock()
+	defer cache.busyMutex.Unlock()
+	delete(cache.busyPaths, path)
+
+	return syscall.Unlink(fname)
 }

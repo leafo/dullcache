@@ -446,6 +446,18 @@ func adminStatPath(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func adminDeletePath(w http.ResponseWriter, r *http.Request) error {
+	values := r.URL.Query()
+	path := values.Get("path")
+	if path == "" {
+		return fmt.Errorf("missing path to delete")
+	}
+
+	log.Print("Delete", path)
+
+	return fileCache.DeletePath(path)
+}
+
 func adminAvailableSize(w http.ResponseWriter, r *http.Request) error {
 	fmt.Fprintln(w, fileCache.TrackedSize())
 	return nil
@@ -473,6 +485,7 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/admin/list-paths", adminHandler(adminListHandler))
 	http.Handle("/admin/list-path-accesses", adminHandler(adminAccessListHandler))
 	http.Handle("/admin/stat-path", adminHandler(adminStatPath))
+	http.Handle("/admin/delete-path", adminHandler(adminDeletePath))
 	http.Handle("/admin/available-size", adminHandler(adminAvailableSize))
 
 	return mannersagain.ListenAndServe(config.Address, nil)
