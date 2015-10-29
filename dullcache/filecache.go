@@ -141,3 +141,24 @@ func (cache *FileCache) MarkPathNeedsPurge(path string) {
 	defer cache.purgedMutex.Unlock()
 	cache.purgedPaths[path] = true
 }
+
+// size in bytes of all the available paths
+func (cache *FileCache) TrackedSize() int64 {
+	cache.availableMutex.RLock()
+	defer cache.availableMutex.RUnlock()
+
+	var total int64
+
+	for _, headers := range cache.availablePaths {
+		contentLenStr := headers.Get("Content-Length")
+		if contentLenStr != "" {
+			contentLen, err := strconv.Atoi(contentLenStr)
+			if err == nil {
+				total += int64(contentLen)
+			}
+
+		}
+	}
+
+	return total
+}

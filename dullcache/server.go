@@ -429,23 +429,7 @@ func adminStatPath(w http.ResponseWriter, r *http.Request) error {
 }
 
 func adminAvailableSize(w http.ResponseWriter, r *http.Request) error {
-	fileCache.availableMutex.RLock()
-	defer fileCache.availableMutex.RUnlock()
-
-	var total int64
-
-	for _, headers := range fileCache.availablePaths {
-		contentLenStr := headers.Get("Content-Length")
-		if contentLenStr != "" {
-			contentLen, err := strconv.Atoi(contentLenStr)
-			if err == nil {
-				total += int64(contentLen)
-			}
-
-		}
-	}
-
-	fmt.Fprintln(w, total)
+	fmt.Fprintln(w, fileCache.TrackedSize())
 	return nil
 }
 
