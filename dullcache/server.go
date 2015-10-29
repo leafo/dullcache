@@ -419,6 +419,22 @@ func adminAccessListHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func adminFileListHandler(w http.ResponseWriter, r *http.Request) error {
+	fileCache.availableMutex.RLock()
+	defer fileCache.availableMutex.RUnlock()
+
+	for path := range fileCache.availablePaths {
+		fname, err := fileCache.CacheFilePath(path)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(w, "%v %v", fname, path)
+	}
+
+	return nil
+}
+
 func adminStatPath(w http.ResponseWriter, r *http.Request) error {
 	values := r.URL.Query()
 	path := values.Get("path")
@@ -482,9 +498,11 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/stat", errorHandler(statHandler))
 	http.Handle("/", errorHandler(cacheHandler))
 
-	http.Handle("/admin/list-paths", adminHandler(adminListHandler))
-	http.Handle("/admin/list-path-accesses", adminHandler(adminAccessListHandler))
-	http.Handle("/admin/stat-path", adminHandler(adminStatPath))
+	http.Handle("/admin/list/paths", adminHandler(adminListHandler))
+	http.Handle("/admin/list/access-times", adminHandler(adminAccessListHandler))
+	http.Handle("/admin/list/fnames", adminHandler(adminFileListHandler))
+
+	http.Handle("/admin/path-headers", adminHandler(adminStatPath))
 	http.Handle("/admin/delete-path", adminHandler(adminDeletePath))
 	http.Handle("/admin/available-size", adminHandler(adminAvailableSize))
 
