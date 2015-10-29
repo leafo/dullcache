@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"sync"
 
 	"github.com/stvp/slug"
@@ -18,11 +19,13 @@ type FileCache struct {
 	availablePaths map[string]http.Header
 	purgedMutex    sync.RWMutex
 	purgedPaths    map[string]bool
+	accessList     *AccessList
 }
 
 func NewFileCache(basePath string) *FileCache {
 	return &FileCache{
 		basePath:       basePath,
+		accessList:     NewAccessList(),
 		busyPaths:      make(map[string]bool),
 		availablePaths: make(map[string]http.Header),
 		purgedPaths:    make(map[string]bool),

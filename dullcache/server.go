@@ -227,6 +227,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 
 	if writingCache {
 		fileCache.MarkPathAvailable(subPath, filterHeaders(remoteRes.Header))
+		fileCache.accessList.AccessPath(subPath)
 		log.Print("Cache stored: ", subPath)
 		if needsPurge {
 			fileCache.ReleasePathPurge(subPath)
@@ -276,6 +277,7 @@ func serveCache(w http.ResponseWriter, r *http.Request, fileHeaders http.Header)
 
 	if err == nil {
 		stats.incrSizeDist(uint64(copied))
+		fileCache.accessList.AccessPath(r.URL.Path)
 	}
 
 	return nil
@@ -401,6 +403,22 @@ func adminListHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func adminAccessListHandler(w http.ResponseWriter, r *http.Request) error {
+	fileCache.accessList.mutex.RLock()
+	defer fileCache.accessList.mutex.RUnlock()
+
+	iter := fileCache.accessList.ordered.Iterator()
+
+	for iter.Next() {
+		path := iter.Key().(string)
+		time := fileCache.accessList.pathTimes[path]
+
+		fmt.Fprintf(w, "%v %v\n", time, path)
+	}
+
+	return nil
+}
+
 func adminStatPath(w http.ResponseWriter, r *http.Request) error {
 	values := r.URL.Query()
 	path := values.Get("path")
@@ -453,6 +471,7 @@ func StartDullCache(_config *Config) error {
 	http.Handle("/", errorHandler(cacheHandler))
 
 	http.Handle("/admin/list-paths", adminHandler(adminListHandler))
+	http.Handle("/admin/list-path-accesses", adminHandler(adminAccessListHandler))
 	http.Handle("/admin/stat-path", adminHandler(adminStatPath))
 	http.Handle("/admin/available-size", adminHandler(adminAvailableSize))
 
