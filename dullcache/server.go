@@ -429,7 +429,7 @@ func adminFileListHandler(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		fmt.Fprintf(w, "%v %v", fname, path)
+		fmt.Fprintf(w, "%v %v\n", fname, path)
 	}
 
 	return nil
