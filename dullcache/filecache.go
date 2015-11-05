@@ -9,7 +9,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/stvp/slug"
+	b58 "github.com/jbenet/go-base58"
 )
 
 type FileCache struct {
@@ -52,13 +52,13 @@ func (cache *FileCache) CountPurgedPaths() int {
 }
 
 func (cache *FileCache) CacheFilePath(subPath string) (string, error) {
-	slug := slug.Clean(subPath)
+	fname := b58.Encode([]byte(subPath))
 
-	if slug == "" {
-		return "", fmt.Errorf("invalid slug")
+	if fname == "" {
+		return "", fmt.Errorf("failed to generate path for cache file")
 	}
 
-	return path.Join(cache.basePath, slug), nil
+	return path.Join(cache.basePath, fname), nil
 }
 
 func (cache *FileCache) PathAvailable(path string) http.Header {
