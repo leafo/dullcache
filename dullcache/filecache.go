@@ -218,3 +218,20 @@ func (cache *FileCache) DeletePath(path string) error {
 
 	return syscall.Unlink(fname)
 }
+
+func (cache *FileCache) PathWriter(subPath string) (*os.File, error) {
+	cacheTarget, err := cache.CacheFilePath(subPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.MkdirAll(path.Dir(cacheTarget), 0755)
+
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Create(cacheTarget)
+	return file, err
+}

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"time"
 
@@ -171,20 +170,7 @@ func serveAndStore(w http.ResponseWriter, r *http.Request) error {
 		defer fileCache.MarkPathFree(subPath)
 		needsPurge = fileCache.PathNeedsPurge(subPath)
 
-		// it's now busy because of us
-		cacheTarget, err := fileCache.CacheFilePath(subPath)
-
-		if err != nil {
-			return err
-		}
-
-		err = os.MkdirAll(path.Dir(cacheTarget), 0755)
-
-		if err != nil {
-			return err
-		}
-
-		file, err := os.Create(cacheTarget)
+		file, err := fileCache.PathWriter(subPath)
 
 		if err != nil {
 			return err
