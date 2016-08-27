@@ -1,0 +1,56 @@
+{
+	"ImportPath": "github.com/leafo/dullcache",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "github.com/cupcake/mannersagain",
+			"Rev": "2f14ecb136a20baf8cf6d508825416fe67486745"
+		},
+		{
+			"ImportPath": "github.com/dustin/go-humanize",
+			"Rev": "8929fe90cee4b2cb9deb468b51fb34eba64d1bf0"
+		},
+		{
+			"ImportPath": "github.com/jbenet/go-base58",
+			"Rev": "6237cf65f3a6f7111cd8a42be3590df99a66bc7d"
+		},
+		{
+			"ImportPath": "github.com/ryszard/goskiplist/skiplist",
+			"Rev": "2dfbae5fcf46374f166f8969cb07e167f1be6273"
+		},
+		{
+			"ImportPath": "github.com/titanous/goagain",
+			"Rev": "94f236e8b44e959172d86b32851179670087010e"
+		},
+		{
+			"ImportPath": "github.com/titanous/manners",
+			"Comment": "0.2.1-1-gd86c2a5",
+			"Rev": "d86c2a5e749b4cfabf588be80a5c31709fecb22a"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "67f25490433376b5f7da086c0b9283fcdeca3a7b"
+		},
+		{
+			"ImportPath": "google.golang.org/api/googleapi",
+			"Rev": "aa91ac681e18e52b1a0dfe29b9d8354e88c0dcf5"
+		},
+		{
+			"ImportPath": "google.golang.org/api/googleapi/internal/uritemplates",
+			"Rev": "aa91ac681e18e52b1a0dfe29b9d8354e88c0dcf5"
+		},
+		{
+			"ImportPath": "google.golang.org/api/storage/v1",
+			"Rev": "aa91ac681e18e52b1a0dfe29b9d8354e88c0dcf5"
+		},
+		{
+			"ImportPath": "google.golang.org/cloud/internal",
+			"Rev": "44a4e998d83d85d2c9bf42770211ea3dad869358"
+		},
+		{
+			"ImportPath": "google.golang.org/cloud/storage",
+			"Rev": "44a4e998d83d85d2c9bf42770211ea3dad869358"
+		}
+	]
+}
